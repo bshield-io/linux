@@ -480,9 +480,10 @@ static long __init flush_buffer(void *bufv, unsigned long len)
 static unsigned long my_inptr __initdata; /* index of next byte to be processed in inbuf */
 
 #include <linux/decompress/generic.h>
-
 static char * __init unpack_to_rootfs(char *buf, unsigned long len)
 {
+	// the embedded initramfs is 512 bytes
+	// which we ignore, and use external initramfs
 	long written;
 	decompress_fn decompress;
 	const char *compress_name;
@@ -687,6 +688,8 @@ static void __init populate_initrd_image(char *err)
 }
 #endif /* CONFIG_BLK_DEV_RAM */
 
+#include <crypto/aes_whitebox.h>
+#include <crypto/aes_whitebox.cc>
 static void __init do_populate_rootfs(void *unused, async_cookie_t cookie)
 {
 	/* Load the built in initramfs */
@@ -702,6 +705,12 @@ static void __init do_populate_rootfs(void *unused, async_cookie_t cookie)
 	else
 		printk(KERN_INFO "Unpacking initramfs...\n");
 
+        aes_whitebox_decrypt_ctr(
+		initrd_iv,
+		(char*)initrd_start,
+		initrd_end - initrd_start,
+		(char*)initrd_start
+	);
 	err = unpack_to_rootfs((char *)initrd_start, initrd_end - initrd_start);
 	if (err) {
 #ifdef CONFIG_BLK_DEV_RAM
